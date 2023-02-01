@@ -10,7 +10,6 @@ import { loadCheckout } from "../lib/stripe";
 
 interface Props {
   products: Product[];
-  selectedPlan: Product;
 }
 function Plans({ products }: Props) {
   const { logout, user } = useAuth();
