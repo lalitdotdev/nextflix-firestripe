@@ -6,9 +6,15 @@ import requests from "../utils/requests";
 import { Movie } from "../typings";
 import Row from "../components/Row";
 import useAuth from "../hooks/useAuth";
-import { modalState } from "../atoms/modalAtom";
+import { modalState, movieState } from "../atoms/modalAtom";
 import Modal from "../components/Modal";
 import { useRecoilValue } from "recoil";
+import Plans from "../components/Plans";
+import { Product, getProducts } from "@stripe/firestore-stripe-payments";
+import payments from "../lib/stripe";
+import useSubscription from "../hooks/useSubscription";
+import useList from "../hooks/useList";
+
 interface Props {
   netflixOriginals: Movie[];
   trendingNow: Movie[];
@@ -18,7 +24,9 @@ interface Props {
   horrorMovies: Movie[];
   romanceMovies: Movie[];
   documentaries: Movie[];
+  products: Product[];
 }
+
 const Home = ({
   netflixOriginals,
   actionMovies,
@@ -28,12 +36,19 @@ const Home = ({
   romanceMovies,
   topRated,
   trendingNow,
+  products,
 }: Props) => {
-  const { loading } = useAuth();
+  // console.log(products);
+  const { loading, user } = useAuth();
 
   const showModal = useRecoilValue(modalState);
+  const subscription = useSubscription(user);
+  const movie = useRecoilValue(movieState);
+  const list = useList(user?.uid); // we need to send uid to get exact list of particular user
 
-  if (loading) return null;
+  if (loading || subscription === null) return null;
+
+  if (!subscription) return <Plans products={products} />;
 
   return (
     <div
@@ -61,6 +76,8 @@ const Home = ({
 
           {/* My List */}
 
+          {/* Displaying My List of User on the UI */}
+          {list.length > 0 && <Row title="My List" movies={list} />}
           <Row title="Comedies" movies={comedyMovies} />
           <Row title="Scary Movies" movies={horrorMovies} />
           <Row title="Romance Movies" movies={romanceMovies} />
@@ -79,6 +96,13 @@ export default Home;
 
 //fetching netflix different movie type
 export const getServerSideProps = async () => {
+  const products = await getProducts(payments, {
+    includePrices: true,
+    activeOnly: true,
+  })
+    .then((res) => res)
+    .catch((error) => console.log(error.message));
+
   const [
     netflixOriginals,
     trendingNow,
@@ -109,6 +133,7 @@ export const getServerSideProps = async () => {
       horrorMovies: horrorMovies.results,
       romanceMovies: romanceMovies.results,
       documentaries: documentaries.results,
+      products,
     },
   };
 };
